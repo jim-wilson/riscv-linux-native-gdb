@@ -2301,6 +2301,8 @@ ALLDEPFILES = \
 	ravenscar-thread.c \
 	remote-sim.c \
 	riscv-tdep.c \
+	riscv-linux-nat.c \
+	riscv-linux-tdep.c \
 	rl78-tdep.c \
 	rs6000-lynx178-tdep.c \
 	rs6000-nat.c \
