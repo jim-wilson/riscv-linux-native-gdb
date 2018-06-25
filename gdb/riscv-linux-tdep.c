@@ -19,11 +19,34 @@
 #include "defs.h"
 #include "riscv-tdep.h"
 #include "osabi.h"
+#include "glibc-tdep.h"
+#include "linux-tdep.h"
+#include "solib-svr4.h"
 
 static void
 riscv_linux_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
   set_gdbarch_software_single_step (gdbarch, riscv_software_single_step);
+
+  linux_init_abi (info, gdbarch);
+
+  /* GNU/Linux uses SVR4-style shared libraries.  */
+  set_gdbarch_skip_trampoline_code (gdbarch, find_solib_trampoline_target);
+
+  /* ??? This needs to depend on the ABI.  */
+  set_solib_svr4_fetch_link_map_offsets (gdbarch,
+					 svr4_lp64_fetch_link_map_offsets);
+
+#if 0
+  /* GNU/Linux uses the dynamic linker included in the GNU C Library.  */
+  set_gdbarch_skip_solib_resolver (gdbarch, glibc_skip_solib_resolver);
+#endif
+
+#if 0
+  /* Enable TLS support.  */
+  set_gdbarch_fetch_tls_load_module_address (gdbarch,
+                                             svr4_fetch_objfile_link_map);
+#endif
 }
 
 void
