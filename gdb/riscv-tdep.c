@@ -307,9 +307,18 @@ riscv_read_misa_reg (bool *read_p)
 	}
       CATCH (ex, RETURN_MASK_ERROR)
 	{
-	  /* Old cores might have MISA located at a different offset.  */
-	  value = get_frame_register_unsigned (frame,
-					       RISCV_CSR_LEGACY_MISA_REGNUM);
+	  TRY
+	    {
+	      /* Old cores might have MISA located at a different offset.  */
+	      value = get_frame_register_unsigned (frame,
+						   RISCV_CSR_LEGACY_MISA_REGNUM);
+	    }
+	  CATCH (ex, RETURN_MASK_ERROR)
+	    {
+	      /* ??? Maybe print an error here.  */
+	      value = 0;
+	    }
+	  END_CATCH
 	}
       END_CATCH
 
