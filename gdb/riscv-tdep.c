@@ -1170,33 +1170,41 @@ riscv_insn::decode (struct gdbarch *gdbarch, CORE_ADDR pc)
     }
   else if (m_length == 2)
     {
-      if (is_c_add_insn (ival))
+      /* C_ADD and C_JALR have the same opcode.  If RS2 is 0, then this is a
+	 C_JALR.  So must try to match C_JALR first as it has more bits in
+	 mask.  */
+      if (is_c_jalr_insn (ival))
+	decode_cr_type_insn (JALR, ival);
+      else if (is_c_add_insn (ival))
 	decode_cr_type_insn (ADD, ival);
       else if (is_c_addw_insn (ival))
 	decode_cr_type_insn (ADDW, ival);
       else if (is_c_addi_insn (ival))
 	decode_ci_type_insn (ADDI, ival);
+      /* ??? This is RV64 only.  Otherwise this is C_JAL.  */
       else if (is_c_addiw_insn (ival))
 	decode_ci_type_insn (ADDIW, ival);
+      /* C_ADDI16SP and C_LUI have the same opcode.  If RD is 2, then this is a
+	 C_ADDI16SP.  So must try to match C_ADDI16SP first as it has more bits
+	 in mask.  */
       else if (is_c_addi16sp_insn (ival))
 	{
 	  m_opcode = ADDI;
 	  m_rd = m_rs1 = decode_register_index (ival, OP_SH_RD);
 	  m_imm.s = EXTRACT_RVC_ADDI16SP_IMM (ival);
 	}
-      else if (is_lui_insn (ival))
+      else if (is_c_lui_insn (ival))
 	m_opcode = OTHER;
+      /* ??? This is RV64 only.  Otherwise this is C_FSW.  */
       else if (is_c_sd_insn (ival))
 	m_opcode = OTHER;
-      else if (is_sw_insn (ival))
+      else if (is_c_sw_insn (ival))
 	m_opcode = OTHER;
+      /* C_JR and C_MV have the same opcode.  If RS2 is 0, then this is a C_JR.
+	 So must try to match C_JR first as it ahs more bits in mask.  */
       else if (is_c_jr_insn (ival))
 	decode_cr_type_insn (JALR, ival);
-      else if (is_c_jalr_insn (ival))
-	decode_cr_type_insn (JALR, ival);
       else if (is_c_j_insn (ival))
-	decode_cj_type_insn (JAL, ival);
-      else if (is_c_jal_insn (ival))
 	decode_cj_type_insn (JAL, ival);
       else if (is_c_beqz_insn (ival))
 	decode_cb_type_insn (BEQ, ival);
