@@ -307,18 +307,9 @@ riscv_read_misa_reg (bool *read_p)
 	}
       CATCH (ex, RETURN_MASK_ERROR)
 	{
-	  TRY
-	    {
-	      /* Old cores might have MISA located at a different offset.  */
-	      value = get_frame_register_unsigned (frame,
-						   RISCV_CSR_LEGACY_MISA_REGNUM);
-	    }
-	  CATCH (ex, RETURN_MASK_ERROR)
-	    {
-	      /* ??? Maybe print an error here.  */
-	      value = 0;
-	    }
-	  END_CATCH
+	  /* Old cores might have MISA located at a different offset.  */
+	  value = get_frame_register_unsigned (frame,
+					       RISCV_CSR_LEGACY_MISA_REGNUM);
 	}
       END_CATCH
 
@@ -1170,6 +1161,8 @@ riscv_insn::decode (struct gdbarch *gdbarch, CORE_ADDR pc)
     }
   else if (m_length == 2)
     {
+      int xlen = riscv_isa_xlen (gdbarch);
+
       /* C_ADD and C_JALR have the same opcode.  If RS2 is 0, then this is a
 	 C_JALR.  So must try to match C_JALR first as it has more bits in
 	 mask.  */
@@ -1177,13 +1170,17 @@ riscv_insn::decode (struct gdbarch *gdbarch, CORE_ADDR pc)
 	decode_cr_type_insn (JALR, ival);
       else if (is_c_add_insn (ival))
 	decode_cr_type_insn (ADD, ival);
-      else if (is_c_addw_insn (ival))
+      /* C_ADDW is RV64 and RV128 only.  */
+      else if (xlen != 4 && is_c_addw_insn (ival))
 	decode_cr_type_insn (ADDW, ival);
       else if (is_c_addi_insn (ival))
 	decode_ci_type_insn (ADDI, ival);
-      /* ??? This is RV64 only.  Otherwise this is C_JAL.  */
-      else if (is_c_addiw_insn (ival))
+      /* C_ADDIW and C_JAL have the same opcode.  C_ADDIW is RV64 and RV128
+	 only and C_JAL is RV32 only.  */
+      else if (xlen != 4 && is_c_addiw_insn (ival))
 	decode_ci_type_insn (ADDIW, ival);
+      else if (xlen == 4 && is_c_jal_insn (ival))
+	decode_cj_type_insn (JAL, ival);
       /* C_ADDI16SP and C_LUI have the same opcode.  If RD is 2, then this is a
 	 C_ADDI16SP.  So must try to match C_ADDI16SP first as it has more bits
 	 in mask.  */
@@ -1195,8 +1192,9 @@ riscv_insn::decode (struct gdbarch *gdbarch, CORE_ADDR pc)
 	}
       else if (is_c_lui_insn (ival))
 	m_opcode = OTHER;
-      /* ??? This is RV64 only.  Otherwise this is C_FSW.  */
-      else if (is_c_sd_insn (ival))
+      /* C_SD and C_FSW have the same opcode.  If C_SD is RV64 and RV128 only,
+	 and C_FSW is RV32 only.  */
+      else if (xlen != 4 && is_c_sd_insn (ival))
 	m_opcode = OTHER;
       else if (is_c_sw_insn (ival))
 	m_opcode = OTHER;
