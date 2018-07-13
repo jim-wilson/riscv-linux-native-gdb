@@ -1,0 +1,94 @@
+diff --git a/arch/riscv/include/uapi/asm/syscalls.h b/arch/riscv/include/uapi/asm/syscalls.h
+index 818655b0d535..8dd2effe8967 100644
+--- a/arch/riscv/include/uapi/asm/syscalls.h
++++ b/arch/riscv/include/uapi/asm/syscalls.h
+@@ -3,9 +3,6 @@
+  * Copyright (C) 2017 SiFive
+  */
+ 
+-#ifndef _ASM__UAPI__SYSCALLS_H
+-#define _ASM__UAPI__SYSCALLS_H
+-
+ /*
+  * Allows the instruction cache to be flushed from userspace.  Despite RISC-V
+  * having a direct 'fence.i' instruction available to userspace (which we
+@@ -22,5 +19,3 @@
+  */
+ #define __NR_riscv_flush_icache (__NR_arch_specific_syscall + 15)
+ __SYSCALL(__NR_riscv_flush_icache, sys_riscv_flush_icache)
+-
+-#endif
+diff --git a/arch/riscv/kernel/ptrace.c b/arch/riscv/kernel/ptrace.c
+index ba3e80712797..0dae7e686f45 100644
+--- a/arch/riscv/kernel/ptrace.c
++++ b/arch/riscv/kernel/ptrace.c
+@@ -27,7 +27,7 @@
+ #include <trace/events/syscalls.h>
+ 
+ enum riscv_regset {
+-	REGSET_X,
++	REGSET_X, REGSET_F
+ };
+ 
+ static int riscv_gpr_get(struct task_struct *target,
+@@ -50,10 +50,32 @@ static int riscv_gpr_set(struct task_struct *target,
+ 	struct pt_regs *regs;
+ 
+ 	regs = task_pt_regs(target);
+-	ret = user_regset_copyin(&pos, &count, &kbuf, &ubuf, &regs, 0, -1);
++	ret = user_regset_copyin(&pos, &count, &kbuf, &ubuf, regs, 0, -1);
+ 	return ret;
+ }
+ 
++static int riscv_fpr_get(struct task_struct *target,
++			 const struct user_regset *regset,
++			 unsigned int pos, unsigned int count,
++			 void *kbuf, void __user *ubuf)
++{
++	struct __riscv_d_ext_state *fstate = &target->thread.fstate;
++
++	/* ??? Also must copy fcsr somehow.  */
++	return user_regset_copyout(&pos, &count, &kbuf, &ubuf, fstate, 0, -1);
++}
++
++static int riscv_fpr_set(struct task_struct *target,
++			 const struct user_regset *regset,
++			 unsigned int pos, unsigned int count,
++			 const void *kbuf, const void __user *ubuf)
++{
++	int ret;
++	struct __riscv_d_ext_state *fstate = &target->thread.fstate;
++
++	ret = user_regset_copyin(&pos, &count, &kbuf, &ubuf, fstate, 0, -1);
++	return ret;
++}
+ 
+ static const struct user_regset riscv_user_regset[] = {
+ 	[REGSET_X] = {
+@@ -64,6 +86,14 @@ static const struct user_regset riscv_user_regset[] = {
+ 		.get = &riscv_gpr_get,
+ 		.set = &riscv_gpr_set,
+ 	},
++	[REGSET_F] = {
++		.core_note_type = NT_PRFPREG,
++		.n = ELF_NGREG,
++		.size = sizeof(elf_greg_t),
++		.align = sizeof(elf_greg_t),
++		.get = &riscv_fpr_get,
++		.set = &riscv_fpr_set,
++	},
+ };
+ 
+ static const struct user_regset_view riscv_user_native_view = {
+diff --git a/arch/riscv/kernel/traps.c b/arch/riscv/kernel/traps.c
+index 93132cb59184..f9640aae4fea 100644
+--- a/arch/riscv/kernel/traps.c
++++ b/arch/riscv/kernel/traps.c
+@@ -150,7 +150,6 @@ asmlinkage void do_trap_break(struct pt_regs *regs)
+ #endif /* CONFIG_GENERIC_BUG */
+ 
+ 	do_trap_siginfo(SIGTRAP, TRAP_BRKPT, regs->sepc, current);
+-	regs->sepc += 0x4;
+ }
+ 
+ #ifdef CONFIG_GENERIC_BUG

@@ -76,6 +76,8 @@ struct gdbarch_tdep
   unsigned core_features;
 };
 
+int riscv_isa_xlen (struct gdbarch *gdbarch);
+
 /* Single step based on where the current instruction will take us.  */
 extern std::vector<CORE_ADDR>
 riscv_software_single_step (struct regcache *regcache);

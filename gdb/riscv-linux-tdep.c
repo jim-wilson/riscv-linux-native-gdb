@@ -26,27 +26,24 @@
 static void
 riscv_linux_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
+  linux_init_abi (info, gdbarch);
+
   set_gdbarch_software_single_step (gdbarch, riscv_software_single_step);
 
-  linux_init_abi (info, gdbarch);
+  set_solib_svr4_fetch_link_map_offsets (gdbarch,
+					 (riscv_isa_xlen (gdbarch) == 4
+					  ? svr4_ilp32_fetch_link_map_offsets
+					  : svr4_lp64_fetch_link_map_offsets));
 
   /* GNU/Linux uses SVR4-style shared libraries.  */
   set_gdbarch_skip_trampoline_code (gdbarch, find_solib_trampoline_target);
 
-  /* ??? This needs to depend on the ABI.  */
-  set_solib_svr4_fetch_link_map_offsets (gdbarch,
-					 svr4_lp64_fetch_link_map_offsets);
-
-#if 0
   /* GNU/Linux uses the dynamic linker included in the GNU C Library.  */
   set_gdbarch_skip_solib_resolver (gdbarch, glibc_skip_solib_resolver);
-#endif
 
-#if 0
   /* Enable TLS support.  */
   set_gdbarch_fetch_tls_load_module_address (gdbarch,
                                              svr4_fetch_objfile_link_map);
-#endif
 }
 
 void
