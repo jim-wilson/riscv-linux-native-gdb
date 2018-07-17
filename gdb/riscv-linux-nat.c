@@ -115,7 +115,6 @@ supply_fpregset (struct regcache *regcache, const prfpregset_t *fpregs)
 void
 fill_gregset (const struct regcache *regcache, prgregset_t *gregs, int regnum)
 {
-  struct gdbarch *gdbarch = regcache->arch ();
   elf_greg_t *regp = *gregs;
 
   if (regnum == -1)
@@ -154,10 +153,22 @@ fill_gregset (const struct regcache *regcache, prgregset_t *gregs, int regnum)
 }
 
 void
-fill_fpregset (const struct regcache *regcache,
-	       prfpregset_t *fpregs, int regnum)
+fill_fpregset (const struct regcache *regcache, prfpregset_t *fpregs,
+	       int regnum)
 {
-  abort ();
+  if (regnum == -1)
+    {
+      /* We only support the FP registers here.  */
+      for (int i = RISCV_FIRST_FP_REGNUM; i <= RISCV_LAST_FP_REGNUM; i++)
+	regcache->raw_collect (i, &fpregs->__d.__f[i - RISCV_FIRST_FP_REGNUM]);
+
+      regcache->raw_collect (RISCV_CSR_FCSR_REGNUM, &fpregs->__d.__fcsr);
+    }
+  else if (regnum >= RISCV_FIRST_FP_REGNUM && regnum <= RISCV_LAST_FP_REGNUM)
+    regcache->raw_collect (regnum,
+			   &fpregs->__d.__f[regnum - RISCV_FIRST_FP_REGNUM]);
+  else if (regnum == RISCV_CSR_FCSR_REGNUM)
+    regcache->raw_collect (RISCV_CSR_FCSR_REGNUM, &fpregs->__d.__fcsr);
 }
 
 /* Fetch REGNUM (or all registers if REGNUM == -1) from the target
@@ -166,7 +177,6 @@ fill_fpregset (const struct regcache *regcache,
 void
 riscv_linux_nat_target::fetch_registers (struct regcache *regcache, int regnum)
 {
-  struct gdbarch *gdbarch = regcache->arch ();
   int tid;
 
   tid = get_ptrace_pid (regcache->ptid());
@@ -225,7 +235,6 @@ riscv_linux_nat_target::fetch_registers (struct regcache *regcache, int regnum)
 void
 riscv_linux_nat_target::store_registers (struct regcache *regcache, int regnum)
 {
-  struct gdbarch *gdbarch = regcache->arch ();
   int tid;
 
   elf_greg_t reg;
@@ -253,9 +262,29 @@ riscv_linux_nat_target::store_registers (struct regcache *regcache, int regnum)
 	    perror_with_name (_("Couldn't set registers"));
 	}
     }
-  else if (regnum >= RISCV_FIRST_FP_REGNUM && regnum <= RISCV_LAST_FP_REGNUM)
+  else if (regnum == -1
+	   || (regnum >= RISCV_FIRST_FP_REGNUM
+	       && regnum <= RISCV_LAST_FP_REGNUM))
     {
-      /* ??? FP registers aren't supported yet, missing ptrace support.  */
+      struct iovec iov;
+      elf_fpregset_t regs;
+
+      /* ??? Should also handle fcsr here.  */
+
+      iov.iov_base = &regs;
+      iov.iov_len = sizeof (regs);
+
+      if (ptrace (PTRACE_GETREGSET, tid, NT_PRFPREG,
+		  (PTRACE_TYPE_ARG3) &iov) == -1)
+	perror_with_name (_("Couldn't get registers"));
+      else
+	{
+	  fill_fpregset (regcache, &regs, regnum);
+
+	  if (ptrace (PTRACE_SETREGSET, tid, NT_PRFPREG,
+		      (PTRACE_TYPE_ARG3) &iov) == -1)
+	    perror_with_name (_("Couldn't set registers"));
+	}
     }
   else if (regnum >= RISCV_FIRST_CSR_REGNUM && regnum <= RISCV_LAST_CSR_REGNUM)
     {
@@ -264,7 +293,7 @@ riscv_linux_nat_target::store_registers (struct regcache *regcache, int regnum)
     }
   else
     {
-      printf ("unknown register read\n");
+      printf ("unknown register write\n");
     }
 }
 

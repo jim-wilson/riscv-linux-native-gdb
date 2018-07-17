@@ -1192,7 +1192,7 @@ riscv_insn::decode (struct gdbarch *gdbarch, CORE_ADDR pc)
 	}
       else if (is_c_lui_insn (ival))
 	m_opcode = OTHER;
-      /* C_SD and C_FSW have the same opcode.  If C_SD is RV64 and RV128 only,
+      /* C_SD and C_FSW have the same opcode.  C_SD is RV64 and RV128 only,
 	 and C_FSW is RV32 only.  */
       else if (xlen != 4 && is_c_sd_insn (ival))
 	m_opcode = OTHER;
@@ -2729,7 +2729,7 @@ riscv_next_pc (struct regcache *regcache, CORE_ADDR pc)
     {
       LONGEST source;
       regcache->cooked_read (insn.rs1 (), &source);
-      next_pc = (source + insn.imm_signed ()) & ~(CORE_ADDR)0x1;
+      next_pc = (source + insn.imm_signed ()) & ~(CORE_ADDR) 0x1;
     }
   else if (insn.opcode () == riscv_insn::BEQ)
     {
