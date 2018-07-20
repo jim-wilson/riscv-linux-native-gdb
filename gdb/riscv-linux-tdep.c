@@ -22,6 +22,31 @@
 #include "glibc-tdep.h"
 #include "linux-tdep.h"
 #include "solib-svr4.h"
+#include "regset.h"
+
+#include <asm/elf.h>
+
+static const struct regcache_map_entry riscv_linux_gregmap[] =
+{
+  { 1,  RISCV_PC_REGNUM, 0 },
+  { 31, RISCV_RA_REGNUM, 0 }, /* x1 to x31 */
+  { 0 }
+};
+
+const struct regset riscv_linux_gregset =
+{
+  riscv_linux_gregmap, regcache_supply_regset, regcache_collect_regset
+};
+
+static void
+riscv_linux_iterate_over_regset_sections (struct gdbarch *gdbarch,
+                                          iterate_over_regset_sections_cb *cb,
+                                          void *cb_data,
+                                          const struct regcache *regcache)
+{
+  cb (".reg", (ELF_NGREG * riscv_isa_xlen (gdbarch)),
+      &riscv_linux_gregset, NULL, cb_data);
+}
 
 static void
 riscv_linux_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
@@ -44,6 +69,9 @@ riscv_linux_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   /* Enable TLS support.  */
   set_gdbarch_fetch_tls_load_module_address (gdbarch,
                                              svr4_fetch_objfile_link_map);
+
+  set_gdbarch_iterate_over_regset_sections
+    (gdbarch, riscv_linux_iterate_over_regset_sections);
 }
 
 void
