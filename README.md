@@ -1,6 +1,9 @@
 Work in progress repo for RISC-V native linux support.  May be broken at any
 time.
 
+I like to use rebase to keep my patches at the top of the tree for easy
+viewing.  Use "git pull --rebase" to update.
+
 The master branch tracks FSF binutils top of tree.  The jimw-riscv-linux-gdb
 branch (the default branch) is master plus my patches.  So my patches can be
 viewed with "git diff master jimw-riscv-linux-gdb".
