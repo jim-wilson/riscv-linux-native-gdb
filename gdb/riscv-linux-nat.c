@@ -35,6 +35,9 @@ public:
 
 static riscv_linux_nat_target the_riscv_linux_nat_target;
 
+/* Copy general purpose register REGNUM (or all gp regs if REGNUM == -1)
+   from regset GREGS into REGCACHE.  */
+
 void
 supply_gregset_regnum (struct regcache *regcache, const prgregset_t *gregs,
 		       int regnum)
@@ -45,7 +48,7 @@ supply_gregset_regnum (struct regcache *regcache, const prgregset_t *gregs,
   if (regnum == -1)
     {
       /* We only support the integer registers and PC here.  */
-      for (i = 1; i < 32; i++)
+      for (i = RISCV_ZERO_REGNUM + 1; i < RISCV_PC_REGNUM; i++)
 	regcache->raw_supply (i, regp + i);
 
       /* GDB stores PC in reg 32.  Linux kernel stores it in reg 0.  */
@@ -54,36 +57,24 @@ supply_gregset_regnum (struct regcache *regcache, const prgregset_t *gregs,
       /* Fill the inaccessible zero register with zero.  */
       regcache->raw_supply_zeroed (0);
     }
-  else if (regnum == 0)
+  else if (regnum == RISCV_ZERO_REGNUM)
     regcache->raw_supply_zeroed (0);
-  else if (regnum > 0 && regnum < 32)
+  else if (regnum > RISCV_ZERO_REGNUM && regnum < RISCV_PC_REGNUM)
     regcache->raw_supply (regnum, regp + regnum);
-  else if (regnum == 32)
+  else if (regnum == RISCV_PC_REGNUM)
     regcache->raw_supply (32, regp + 0);
-  else if (regnum >= RISCV_FIRST_FP_REGNUM && regnum <= RISCV_LAST_FP_REGNUM)
-    {
-      /* ??? FP registers aren't supported yet, missing ptrace support.  */
-    }
-  else if (regnum == RISCV_CSR_MISA_REGNUM)
-    {
-      /* ??? Need to add a ptrace call for this.  */
-    }
-  else if (regnum >= RISCV_FIRST_CSR_REGNUM && regnum <= RISCV_LAST_CSR_REGNUM)
-    {
-      /* CSR access would require ptrace support, but there are security issues
-	 here, so may not make sense for most of them.  */
-    }
-  else
-    {
-      printf ("unknown register read\n");
-    }
 }
+
+/* Copy all general purpose registers from regset GREGS into REGCACHE.  */
 
 void
 supply_gregset (struct regcache *regcache, const prgregset_t *gregs)
 {
   supply_gregset_regnum (regcache, gregs, -1);
 }
+
+/* Copy floating point register REGNUM (or all fp regs if REGNUM == -1)
+   from regset FPREGS into REGCACHE.  */
 
 void
 supply_fpregset_regnum (struct regcache *regcache, const prfpregset_t *fpregs,
@@ -93,7 +84,7 @@ supply_fpregset_regnum (struct regcache *regcache, const prfpregset_t *fpregs,
 
   if (regnum == -1)
     {
-      /* We only support the FP registers here.  */
+      /* We only support the FP registers and FCSR here.  */
       for (i = RISCV_FIRST_FP_REGNUM; i <= RISCV_LAST_FP_REGNUM; i++)
 	regcache->raw_supply (i, &fpregs->__d.__f[i - RISCV_FIRST_FP_REGNUM]);
 
@@ -106,11 +97,16 @@ supply_fpregset_regnum (struct regcache *regcache, const prfpregset_t *fpregs,
     regcache->raw_supply (RISCV_CSR_FCSR_REGNUM, &fpregs->__d.__fcsr);
 }
 
+/* Copy all floating point registers from regset FPREGS into REGCACHE.  */
+
 void
 supply_fpregset (struct regcache *regcache, const prfpregset_t *fpregs)
 {
   supply_fpregset_regnum (regcache, fpregs, -1);
 }
+
+/* Copy general purpose register REGNUM (or all gp regs if REGNUM == -1)
+   from REGCACHE into regset GREGS.  */
 
 void
 fill_gregset (const struct regcache *regcache, prgregset_t *gregs, int regnum)
@@ -119,38 +115,23 @@ fill_gregset (const struct regcache *regcache, prgregset_t *gregs, int regnum)
 
   if (regnum == -1)
     {
-      /* ??? We only support the integer registers and PC currently.  */
-      for (int i = 1; i < 32; i++)
+      /* We only support the integer registers and PC here.  */
+      for (int i = RISCV_ZERO_REGNUM + 1; i < RISCV_PC_REGNUM; i++)
 	regcache->raw_collect (i, regp + i);
 
       regcache->raw_collect (32, regp + 0);
     }
-  else if (regnum == 0)
+  else if (regnum == RISCV_ZERO_REGNUM)
     /* Nothing to do here.  */
     ;
-  else if (regnum > 0 && regnum < 32)
+  else if (regnum > RISCV_ZERO_REGNUM && regnum < RISCV_PC_REGNUM)
     regcache->raw_collect (regnum, regp + regnum);
-  else if (regnum == 32)
+  else if (regnum == RISCV_PC_REGNUM)
     regcache->raw_collect (32, regp + 0);
-  else if (regnum >= RISCV_FIRST_FP_REGNUM && regnum <= RISCV_LAST_FP_REGNUM)
-    {
-      /* ??? FP registers aren't supported yet, missing ptrace support.  */
-    }
-  else if (regnum == RISCV_CSR_MISA_REGNUM)
-    {
-      /* ??? Need to add a ptrace call for this, but writing misa is not
-	 necessarily allowed by the hardware.  */
-    }
-  else if (regnum >= RISCV_FIRST_CSR_REGNUM && regnum <= RISCV_LAST_CSR_REGNUM)
-    {
-      /* CSR access would require ptrace support, but there are security issues
-	 here, so may not make sense for most of them.  */
-    }
-  else
-    {
-      printf ("unknown register read\n");
-    }
 }
+
+/* Copy floating point register REGNUM (or all fp regs if REGNUM == -1)
+   from REGCACHE into regset FPREGS.  */
 
 void
 fill_fpregset (const struct regcache *regcache, prfpregset_t *fpregs,
@@ -158,7 +139,7 @@ fill_fpregset (const struct regcache *regcache, prfpregset_t *fpregs,
 {
   if (regnum == -1)
     {
-      /* We only support the FP registers here.  */
+      /* We only support the FP registers and FCSR here.  */
       for (int i = RISCV_FIRST_FP_REGNUM; i <= RISCV_LAST_FP_REGNUM; i++)
 	regcache->raw_collect (i, &fpregs->__d.__f[i - RISCV_FIRST_FP_REGNUM]);
 
@@ -172,7 +153,7 @@ fill_fpregset (const struct regcache *regcache, prfpregset_t *fpregs,
 }
 
 /* Fetch REGNUM (or all registers if REGNUM == -1) from the target
-   using any working method.  */
+   into REGCACHE using PTRACE_GETREGSET.  */
 
 void
 riscv_linux_nat_target::fetch_registers (struct regcache *regcache, int regnum)
@@ -181,7 +162,8 @@ riscv_linux_nat_target::fetch_registers (struct regcache *regcache, int regnum)
 
   tid = get_ptrace_pid (regcache->ptid());
 
-  if (regnum == -1 || (regnum >= 0 && regnum <= 32))
+  if ((regnum >= RISCV_ZERO_REGNUM && regnum <= RISCV_PC_REGNUM)
+      || (regnum == -1))
     {
       struct iovec iov;
       elf_gregset_t regs;
@@ -195,14 +177,14 @@ riscv_linux_nat_target::fetch_registers (struct regcache *regcache, int regnum)
       else
 	supply_gregset_regnum (regcache, &regs, regnum);
     }
-  else if (regnum == -1
-	   || (regnum >= RISCV_FIRST_FP_REGNUM
-	       && regnum <= RISCV_LAST_FP_REGNUM))
+
+  if ((regnum >= RISCV_FIRST_FP_REGNUM
+       && regnum <= RISCV_LAST_FP_REGNUM)
+      || (regnum == RISCV_CSR_FCSR_REGNUM)
+      || (regnum == -1))
     {
       struct iovec iov;
       elf_fpregset_t regs;
-
-      /* ??? Should also handle fcsr here.  */
 
       iov.iov_base = &regs;
       iov.iov_len = sizeof (regs);
@@ -213,36 +195,29 @@ riscv_linux_nat_target::fetch_registers (struct regcache *regcache, int regnum)
       else
 	supply_fpregset_regnum (regcache, &regs, regnum);
     }
-  else if (regnum == RISCV_CSR_MISA_REGNUM)
+
+  if (regnum == RISCV_CSR_MISA_REGNUM)
     {
-      /* ??? Need to add a ptrace call for this.  */
+      /* TODO: Need to add a ptrace call for this.  */
       regcache->raw_supply_zeroed (regnum);
     }
-  else if (regnum >= RISCV_FIRST_CSR_REGNUM && regnum <= RISCV_LAST_CSR_REGNUM)
-    {
-      /* CSR access would require ptrace support, but there are security issues
-	 here, so may not make sense for most of them.  */
-    }
-  else
-    {
-      printf ("unknown register read\n");
-    }
+
+  /* Access to other CSRs has potential security issues, don't support them for
+     now.  */
 }
 
 /* Store REGNUM (or all registers if REGNUM == -1) to the target
-   using any working method.  */
+   from REGCACHE using PTRACE_SETREGSET.  */
 
 void
 riscv_linux_nat_target::store_registers (struct regcache *regcache, int regnum)
 {
   int tid;
 
-  elf_greg_t reg;
-  regcache->raw_collect (regnum, &reg);
-
   tid = get_ptrace_pid (regcache->ptid ());
 
-  if (regnum == -1 || (regnum >= 0 && regnum <= 32))
+  if ((regnum >= RISCV_ZERO_REGNUM && regnum <= RISCV_PC_REGNUM)
+      || (regnum == -1))
     {
       struct iovec iov;
       elf_gregset_t regs;
@@ -262,14 +237,14 @@ riscv_linux_nat_target::store_registers (struct regcache *regcache, int regnum)
 	    perror_with_name (_("Couldn't set registers"));
 	}
     }
-  else if (regnum == -1
-	   || (regnum >= RISCV_FIRST_FP_REGNUM
-	       && regnum <= RISCV_LAST_FP_REGNUM))
+
+  if ((regnum >= RISCV_FIRST_FP_REGNUM
+       && regnum <= RISCV_LAST_FP_REGNUM)
+      || (regnum == RISCV_CSR_FCSR_REGNUM)
+      || (regnum == -1))
     {
       struct iovec iov;
       elf_fpregset_t regs;
-
-      /* ??? Should also handle fcsr here.  */
 
       iov.iov_base = &regs;
       iov.iov_len = sizeof (regs);
@@ -286,16 +261,12 @@ riscv_linux_nat_target::store_registers (struct regcache *regcache, int regnum)
 	    perror_with_name (_("Couldn't set registers"));
 	}
     }
-  else if (regnum >= RISCV_FIRST_CSR_REGNUM && regnum <= RISCV_LAST_CSR_REGNUM)
-    {
-      /* CSR access would require ptrace support, but there are security issues
-	 here, so may not make sense for most of them.  */
-    }
-  else
-    {
-      printf ("unknown register write\n");
-    }
+
+  /* Access to CSRs has potential security issues, don't support them for
+     now.  */
 }
+
+/* Initialize RISC-V Linux native support.  */
 
 void
 _initialize_riscv_linux_nat (void)

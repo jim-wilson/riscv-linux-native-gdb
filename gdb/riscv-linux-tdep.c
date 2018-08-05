@@ -38,6 +38,8 @@ const struct regset riscv_linux_gregset =
   riscv_linux_gregmap, regcache_supply_regset, regcache_collect_regset
 };
 
+/* Define hook for core file support.  */
+
 static void
 riscv_linux_iterate_over_regset_sections (struct gdbarch *gdbarch,
                                           iterate_over_regset_sections_cb *cb,
@@ -46,7 +48,11 @@ riscv_linux_iterate_over_regset_sections (struct gdbarch *gdbarch,
 {
   cb (".reg", (ELF_NGREG * riscv_isa_xlen (gdbarch)),
       &riscv_linux_gregset, NULL, cb_data);
+
+  /* TODO: Add FP register support.  */
 }
+
+/* Initialize RISC-V Linux ABI info.  */
 
 static void
 riscv_linux_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
@@ -73,6 +79,8 @@ riscv_linux_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   set_gdbarch_iterate_over_regset_sections
     (gdbarch, riscv_linux_iterate_over_regset_sections);
 }
+
+/* Initialize RISC-V Linux target support.  */
 
 void
 _initialize_riscv_linux_tdep (void)
